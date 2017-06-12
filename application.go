@@ -12,7 +12,7 @@ import (
 
 var (
 	debug, jsonLogs, nonInteractive bool
-	dockerHost, cfgFile             string
+	dockerHost, cfgFile, appName    string
 )
 
 type Application struct {
@@ -22,6 +22,7 @@ type Application struct {
 }
 
 func (a *Application) RunWith(c Commands) {
+	appName = a.Name
 	c.forEach(func(name string, cmd *Command) error {
 		a.add(name, cmd)
 		return nil
@@ -56,6 +57,7 @@ func (a *Application) generate() {
 			}
 		},
 	}
+	a.initRootCmd(a.cmd)
 }
 
 func (a *Application) initCobra() error {
@@ -70,88 +72,11 @@ func (a *Application) initCobra() error {
 	return nil
 }
 
-type InitFunc func(args []string)
+func (a *Application) initRootCmd(rootCmd *cobra.Command) {
+	cobra.OnInitialize(a.initConfig)
 
-type AppConfig struct {
-	Image, WorkDir   string
-	Cmd, Envs, Binds []string
-	Privileged       bool
-}
+	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", fmt.Sprintf("config file (default is $HOME/.%s.yaml)", appName))
 
-type DockerTask interface {
-	Start(AppConfig, []string) error
-}
-
-type Task struct{}
-
-func (t *Task) Start(cfg AppConfig, args []string) error {
-	cli := GetDockerClient()
-	cli.SetImage(cfg.Image)
-	cli.SetCmd(cfg.Cmd)
-	cli.SetBinds(cfg.Binds)
-	cli.SetEnvs(cfg.Envs)
-	cli.SetWorkDir(cfg.WorkDir)
-	cli.Privileged(cfg.Privileged)
-	_, err := cli.StartContainer(true, "")
-	return err
-}
-
-type Command struct {
-	Name, ShortDescription, LongDescription string
-	Init                                    InitFunc
-	RunCfg                                  AppConfig
-	Task                                    DockerTask
-	cmd                                     *cobra.Command
-}
-
-func (c *Command) generate() {
-	c.cmd = &cobra.Command{
-		Use:   c.Name,
-		Short: c.ShortDescription,
-		Long:  c.LongDescription,
-		PreRun: func(cmd *cobra.Command, args []string) {
-			if c.Init != nil {
-				c.Init(args)
-			}
-		},
-		Run: func(cmd *cobra.Command, args []string) {
-			var task DockerTask
-
-			if c.Task == nil {
-				task = new(Task)
-			} else {
-				task = c.Task
-			}
-			if err := task.Start(c.RunCfg, args); err != nil {
-				log.Fatalf("Error executing task: %s", err)
-			}
-		},
-	}
-	initRootCmd(c.cmd)
-}
-
-type CommandIter func(name string, cmd *Command) error
-
-type Commands map[string]*Command
-
-func (c Commands) forEach(f CommandIter) error {
-	for k, v := range c {
-		if err := f(k, v); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-// Init attaches to the parent command
-func initRootCmd(rootCmd *cobra.Command) {
-	cobra.OnInitialize(initConfig)
-
-	// Cobra supports Persistent Flags, which, if defined here,
-	// will be global for your application.
-	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.pscli.yaml)")
-
-	// this should be done with build tags, but for the sake of expediency we'll check it at runtime
 	var dockerSocket string
 	if runtime.GOOS == "windows" {
 		dockerSocket = "npipe:////./pipe/docker_engine"
@@ -159,20 +84,30 @@ func initRootCmd(rootCmd *cobra.Command) {
 		dockerSocket = "unix:///var/run/docker.sock"
 	}
 	rootCmd.PersistentFlags().StringVarP(&dockerHost, "docker-host", "H", dockerSocket, "URI of Docker Daemon")
+	viper.BindPFlag("docker-host", rootCmd.PersistentFlags().Lookup("docker-host"))
+	viper.SetDefault("docker-host", dockerSocket)
+
 	rootCmd.PersistentFlags().BoolVarP(&debug, "debug", "d", false, "Debug mode")
+	viper.BindPFlag("debug", rootCmd.PersistentFlags().Lookup("debug"))
+	viper.SetDefault("debug", true)
+
 	rootCmd.PersistentFlags().BoolVarP(&jsonLogs, "json", "j", false, "Log in json format")
+	viper.BindPFlag("json", rootCmd.PersistentFlags().Lookup("json"))
+	viper.SetDefault("json", true)
+
 	rootCmd.PersistentFlags().BoolVarP(&nonInteractive, "non-interactive", "N", false, "Do not use a tty, non-interactive output only")
+	viper.BindPFlag("non-interactive", rootCmd.PersistentFlags().Lookup("non-interactive"))
+	viper.SetDefault("non-interactive", false)
 }
 
-// initConfig reads in config file and ENV variables if set.
-func initConfig() {
+func (a *Application) initConfig() {
 	if cfgFile != "" { // enable ability to specify config file via flag
 		viper.SetConfigFile(cfgFile)
 	}
 
-	viper.SetConfigName(".pscli") // name of config file (without extension)
-	viper.AddConfigPath("$HOME")  // adding home directory as first search path
-	viper.AutomaticEnv()          // read in environment variables that match
+	viper.SetConfigName(fmt.Sprintf(".%s", appName)) // name of config file (without extension)
+	viper.AddConfigPath("$HOME")                     // adding home directory as first search path
+	viper.AutomaticEnv()                             // read in environment variables that match
 
 	// If a config file is found, read it in.
 	if err := viper.ReadInConfig(); err == nil {
