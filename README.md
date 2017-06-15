@@ -12,6 +12,7 @@ The answer to all these questions at our company was a resounding *YES!*
 We needed a way to reduce the overheads associated with onboarding new starters, so instead of a document giving a list of software that needed to be downloaded, e.g. ChefDK, Vagrant, Terraform _etc. etc._ they could just download a single _thing_ which gave them a ready made development environment whether they used Mac or Linux PCs. Vagrant was the obvious choice and for a while it worked, but as we scaled up as a tech team both in numbers and in diversity of tools, this quickly became unmanageable. Different teams started wanting different boxes with different thing and different versions of those things. We soon ended up with several huge box files to maintain, they were slow to update, slow to upload and slow to download and horrible to maintain. We spent a lot of time troubleshooting...
 
 > "Oh yes I have seen that error before, are you using Vagrant version X with VirtualBox version Y? Try downgrading Vagrant."
+
 > "Err... not sure this will work with Windows sorry!"
 
 Then along came Docker for Mac and shortly after, Docker for Windows and this opened the world of containers up to non-Linux users and gave us the ability to distribute our tools using Docker across Mac, Linux and Windows for the first time. Being a Chef house, the first experiment was to run ChefDK out of a docker container and was distributed as some bash aliases (early days!).
@@ -72,5 +73,5 @@ $ example moo -u "Smell my cheese, you mother"
 
 ## API
 
-[API.md]
+[https://github.com/adampointer/cali/blob/master/API.md](API.md)
 
