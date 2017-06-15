@@ -1,4 +1,4 @@
-package main
+package cali
 
 import (
 	"fmt"
@@ -22,48 +22,51 @@ var (
 	myFlags                         *viper.Viper
 )
 
+// TaskFunc is a function executed by a Task when the command the Task belongs to is run
 type TaskFunc func(t *Task, args []string)
 
+// defaultTaskFunc is the TaskFunc which is executed unless a custom TaskFunc is
+// attached to the Task
 var defaultTaskFunc TaskFunc = func(t *Task, args []string) {
-	cli := GetDockerClient()
-	cli.SetImage(t.image)
-	cli.SetCmd(t.cmd)
-
-	if _, err := cli.StartContainer(true, ""); err != nil {
+	if err := t.InitDocker(); err != nil {
+		log.Fatalf("Error initialising Docker: %s", err)
+	}
+	if _, err := t.StartContainer(true, ""); err != nil {
 		log.Fatalf("Error executing task: %s", err)
 	}
 }
 
+// Task is the action performed when it's parent command is run
 type Task struct {
 	f, init TaskFunc
-	cmd     []string
-	image   string
+	*DockerClient
 }
 
-func (t *Task) SetCmd(cmd []string) {
-	t.cmd = cmd
-}
-
-func (t *Task) SetImage(image string) {
-	t.image = image
-}
-
+// SetFunc sets the TaskFunc which is run when the parent command is run
+// if this is left, the defaultTaskFunc will be executed instead
 func (t *Task) SetFunc(f TaskFunc) {
 	t.f = f
 }
 
+// SetInitFunc sets the TaskFunc which is executed before the main TaskFunc. It's
+// pupose is to do any setup of the DockerClient which depends on command line args
+// for example
 func (t *Task) SetInitFunc(f TaskFunc) {
 	t.init = f
 }
 
+// cobraFunc represents the function signiture which cobra uses for it's Run, PreRun, PostRun etc.
 type cobraFunc func(cmd *cobra.Command, args []string)
 
+// command is the actual command run by the cli and essentially just wraps cobra.Command and
+// has an associated Task
 type command struct {
 	name    string
 	RunTask *Task
 	cobra   *cobra.Command
 }
 
+// newCommand returns an freshly initialised command
 func newCommand(n string) *command {
 	return &command{
 		name:  n,
@@ -71,24 +74,29 @@ func newCommand(n string) *command {
 	}
 }
 
+// SetShort sets the short description of the command
 func (c *command) SetShort(s string) {
 	c.cobra.Short = s
 }
 
+// SetLong sets the long description of the command
 func (c *command) SetLong(l string) {
 	c.cobra.Long = l
 }
 
+// setPreRun sets the cobra.Command.PreRun function
 func (c *command) setPreRun(f cobraFunc) {
 	c.cobra.PreRun = f
 }
 
+// setRun sets the cobra.Command.Run function
 func (c *command) setRun(f cobraFunc) {
 	c.cobra.Run = f
 }
 
+// Task is something executed by a command
 func (c *command) Task(def interface{}) *Task {
-	t := &Task{}
+	t := &Task{DockerClient: NewDockerClient()}
 
 	switch d := def.(type) {
 	case string:
@@ -107,10 +115,12 @@ func (c *command) Task(def interface{}) *Task {
 	return t
 }
 
+// Flags returns the FlagSet for the command and is used to set new flags for the command
 func (c *command) Flags() *flag.FlagSet {
 	return c.cobra.PersistentFlags()
 }
 
+// BindFlags needs to be called after all flags for a command have been defined
 func (c *command) BindFlags() {
 	c.Flags().VisitAll(func(f *flag.Flag) {
 		myFlags.BindPFlag(f.Name, f)
@@ -118,8 +128,10 @@ func (c *command) BindFlags() {
 	})
 }
 
+// commands is a set of commands
 type commands map[string]*command
 
+// cli is the application itself
 type cli struct {
 	name    string
 	cfgFile *string
@@ -127,6 +139,7 @@ type cli struct {
 	*command
 }
 
+// Cli returns a brand new cli
 func Cli(n string) *cli {
 	c := cli{
 		name:    n,
@@ -146,6 +159,7 @@ func Cli(n string) *cli {
 	return &c
 }
 
+// Command returns a brand new command attached to it's parent cli
 func (c *cli) Command(n string) *command {
 	cmd := newCommand(n)
 	c.cmds[n] = cmd
@@ -159,10 +173,13 @@ func (c *cli) Command(n string) *command {
 	return cmd
 }
 
+// FlagValues returns the wrapped viper object allowing the API consumer to use methods
+// like GetString to get values from config
 func (c *cli) FlagValues() *viper.Viper {
 	return myFlags
 }
 
+// initFlags does the intial setup of the root command's persistent flags
 func (c *cli) initFlags() {
 	var cfg string
 	txt := fmt.Sprintf("config file (default is $HOME/.%s.yaml)", c.name)
@@ -192,6 +209,7 @@ func (c *cli) initFlags() {
 	myFlags.SetDefault("non-interactive", false)
 }
 
+// initConfig does the initial setup of viper
 func (c *cli) initConfig() {
 	if *c.cfgFile != "" {
 		myFlags.SetConfigFile(*c.cfgFile)
@@ -207,9 +225,7 @@ func (c *cli) initConfig() {
 	}
 }
 
-func (c *cli) initLogs() {
-}
-
+// Start the fans please!
 func (c *cli) Start() {
 	c.initFlags()
 	cobra.OnInitialize(c.initConfig)

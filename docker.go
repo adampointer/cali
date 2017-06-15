@@ -1,4 +1,4 @@
-package main
+package cali
 
 import (
 	"bufio"
@@ -47,34 +47,23 @@ type DockerClient struct {
 	running  []string
 }
 
-type DockerApp interface {
-	Start(*DockerAppConfig) error
-}
-
-type DockerAppConfig struct {
-	Args, Envs          []string
-	WorkDir, AwsAccount string
-	Git                 *GitCheckoutConfig
-}
-
-func GetDockerClient() *DockerClient {
-	var c *client.Client
-	var err error
+// Init initialises the client
+func (c *DockerClient) InitDocker() error {
+	var cli *client.Client
 
 	defaultHeaders := map[string]string{"User-Agent": "engine-api-cli-1.0"}
-
-	c, err = client.NewClient(dockerHost, "v1.22", nil, defaultHeaders)
+	cli, err := client.NewClient(dockerHost, "v1.22", nil, defaultHeaders)
 
 	if err != nil {
-		log.Fatalf("Could not connect to Docker daemon on %s: %s", dockerHost, err)
+		return fmt.Errorf("Could not connect to Docker daemon on %s: %s", dockerHost, err)
 	}
-	return NewDockerClient(c)
+	c.Cli = cli
+	return nil
 }
 
 // NewDockerClient returns a new DockerClient initialised with the API object
-func NewDockerClient(cli *client.Client) *DockerClient {
+func NewDockerClient() *DockerClient {
 	c := new(DockerClient)
-	c.Cli = cli
 	c.SetDefaults()
 	return c
 }
@@ -109,42 +98,52 @@ func (c *DockerClient) SetConf(co *container.Config) {
 	c.Conf = co
 }
 
+// AddBind adds a bind mount to the HostConfig
 func (c *DockerClient) AddBind(bnd string) {
 	c.HostConf.Binds = append(c.HostConf.Binds, bnd)
 }
 
+// AddEnvs adds an environment variable to the HostConfig
 func (c *DockerClient) AddEnv(env string) {
 	c.Conf.Env = append(c.Conf.Env, env)
 }
 
+// AddBinds adds multiple bind mounts to the HostConfig
 func (c *DockerClient) AddBinds(bnds []string) {
 	c.HostConf.Binds = append(c.HostConf.Binds, bnds...)
 }
 
+// AddEnvs adds multiple envs to the HostConfig
 func (c *DockerClient) AddEnvs(envs []string) {
 	c.Conf.Env = append(c.Conf.Env, envs...)
 }
 
+// SetBinds sets the bind mounts in the HostConfig
 func (c *DockerClient) SetBinds(bnds []string) {
 	c.HostConf.Binds = bnds
 }
 
+// SetEnvs sets the environment variables in the Conf
 func (c *DockerClient) SetEnvs(envs []string) {
 	c.Conf.Env = envs
 }
 
+// SetImage sets the image in Conf
 func (c *DockerClient) SetImage(img string) {
 	c.Conf.Image = img
 }
 
+// Privileged sets whether the container should run as privileged
 func (c *DockerClient) Privileged(p bool) {
 	c.HostConf.Privileged = p
 }
 
+// SetCmd sets the command to run in the container
 func (c *DockerClient) SetCmd(cmd []string) {
 	c.Conf.Cmd = cmd
 }
 
+// SetWorkDir sets the working directory of the container
 func (c *DockerClient) SetWorkDir(wd string) {
 	c.Conf.WorkingDir = wd
 }
@@ -152,7 +151,11 @@ func (c *DockerClient) SetWorkDir(wd string) {
 // BindFromGit creates a data container with a git clone inside and mounts its volumes inside your app container
 // If there is no valid Git repo set in config, the noGit callback function will be executed instead
 func (c *DockerClient) BindFromGit(cfg *GitCheckoutConfig, noGit func()) error {
-	cli := GetDockerClient()
+	cli := NewDockerClient()
+
+	if err := cli.InitDocker(); err != nil {
+		return err
+	}
 
 	if cfg.Repo != "" {
 		// Build code from data volume

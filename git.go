@@ -1,4 +1,4 @@
-package main
+package cali
 
 import (
 	"crypto/md5"
