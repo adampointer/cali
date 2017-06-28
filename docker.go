@@ -7,6 +7,7 @@ import (
 	"io"
 	"os"
 	"os/signal"
+	"path"
 
 	log "github.com/Sirupsen/logrus"
 	"github.com/docker/docker/api/types"
@@ -104,8 +105,8 @@ func (c *DockerClient) AddBind(bnd string) {
 }
 
 // AddEnvs adds an environment variable to the HostConfig
-func (c *DockerClient) AddEnv(env string) {
-	c.Conf.Env = append(c.Conf.Env, env)
+func (c *DockerClient) AddEnv(key, value string) {
+	c.Conf.Env = append(c.Conf.Env, fmt.Sprintf("%s=%s", key, value))
 }
 
 // AddBinds adds multiple bind mounts to the HostConfig
@@ -150,7 +151,7 @@ func (c *DockerClient) SetWorkDir(wd string) {
 
 // BindFromGit creates a data container with a git clone inside and mounts its volumes inside your app container
 // If there is no valid Git repo set in config, the noGit callback function will be executed instead
-func (c *DockerClient) BindFromGit(cfg *GitCheckoutConfig, noGit func()) error {
+func (c *DockerClient) BindFromGit(cfg *GitCheckoutConfig, noGit func() error) error {
 	cli := NewDockerClient()
 
 	if err := cli.InitDocker(); err != nil {
@@ -160,12 +161,20 @@ func (c *DockerClient) BindFromGit(cfg *GitCheckoutConfig, noGit func()) error {
 	if cfg.Repo != "" {
 		// Build code from data volume
 		git := cli.Git()
+
+		if cfg.Image != "" {
+			git.Image = cfg.Image
+		}
 		id, err := git.Checkout(cfg)
 
 		if err != nil {
 			return err
 		}
 		c.HostConf.VolumesFrom = []string{id}
+
+		if cfg.RelPath != "" {
+			c.SetWorkDir(path.Join(workdir, cfg.RelPath))
+		}
 	} else {
 		// Execute callback
 		noGit()
@@ -340,7 +349,7 @@ func (c *DockerClient) ImageExists(image string) bool {
 	if err != nil {
 		log.WithFields(log.Fields{
 			"image": image,
-		}).Debugf("Error inspecting image: ", err)
+		}).Debugf("Error inspecting image: %s", err)
 		return false
 	}
 	return true

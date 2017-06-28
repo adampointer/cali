@@ -3,6 +3,7 @@ package cali
 import (
 	"crypto/md5"
 	"fmt"
+	"os"
 
 	log "github.com/Sirupsen/logrus"
 	"github.com/docker/docker/api/types/container"
@@ -11,34 +12,31 @@ import (
 
 // GitCheckoutConfig is input for Git.Checkout
 type GitCheckoutConfig struct {
-	Repo, Branch, RelPath string
+	Repo, Branch, RelPath, Image string
 }
 
-const gitImage = "hub.platformservices.io/platformservices/git:1.1"
+const gitImage = "indiehosters/git:latest"
 
 // Git returns a new instance
 func (c *DockerClient) Git() *Git {
-	return &Git{c: c}
+	return &Git{c: c, Image: gitImage}
 }
 
 // Git is used to interact with containerised git
 type Git struct {
-	c *DockerClient
+	c     *DockerClient
+	Image string
 }
 
 // GitCheckout will create and start a container, checkout repo and leave container stopped
 // so volume can be imported
 func (g *Git) Checkout(cfg *GitCheckoutConfig) (string, error) {
-
-	if cfg.RelPath == "" {
-		cfg.RelPath = "."
-	}
-	name := fmt.Sprintf("data_%s_%s_%x", cfg.RelPath, cfg.Branch, md5.Sum([]byte(cfg.Repo)))
+	name := fmt.Sprintf("data_%x", md5.Sum([]byte(cfg.Repo+cfg.Branch)))
 
 	if g.c.ContainerExists(name) {
 		log.Infof("Existing data container found: %s", name)
 
-		if _, err := g.Pull(name, cfg.RelPath); err != nil {
+		if _, err := g.Pull(name); err != nil {
 			log.Warnf("Git pull error: %s", err)
 			return name, err
 		}
@@ -46,17 +44,24 @@ func (g *Git) Checkout(cfg *GitCheckoutConfig) (string, error) {
 	} else {
 		log.WithFields(log.Fields{
 			"git_url": cfg.Repo,
-			"image":   gitImage,
+			"image":   g.Image,
 		}).Info("Creating data containers")
 
 		co := container.Config{
-			Cmd:          []string{"clone", cfg.Repo, "-b", cfg.Branch, "--depth", "1", cfg.RelPath},
+			Cmd:          []string{"clone", cfg.Repo, "-b", cfg.Branch, "--depth", "1", "."},
 			Image:        gitImage,
 			Tty:          true,
 			AttachStdout: true,
 			AttachStderr: true,
+			WorkingDir:   "/tmp/workspace",
+			Entrypoint:   []string{"git"},
 		}
-		hc := container.HostConfig{}
+		hc := container.HostConfig{
+			Binds: []string{
+				"/tmp/workspace",
+				fmt.Sprintf("%s/.ssh:/root/.ssh", os.Getenv("HOME")),
+			},
+		}
 		nc := network.NetworkingConfig{}
 
 		g.c.SetConf(&co)
@@ -72,17 +77,21 @@ func (g *Git) Checkout(cfg *GitCheckoutConfig) (string, error) {
 	}
 }
 
-func (g *Git) Pull(name, relPath string) (string, error) {
+func (g *Git) Pull(name string) (string, error) {
 	co := container.Config{
 		Cmd:          []string{"pull"},
-		Image:        gitImage,
+		Image:        g.Image,
 		Tty:          true,
 		AttachStdout: true,
 		AttachStderr: true,
-		WorkingDir:   fmt.Sprintf("/tmp/workspace/%s", relPath),
+		WorkingDir:   "/tmp/workspace",
+		Entrypoint:   []string{"git"},
 	}
 	hc := container.HostConfig{
 		VolumesFrom: []string{name},
+		Binds: []string{
+			fmt.Sprintf("%s/.ssh:/root/.ssh", os.Getenv("HOME")),
+		},
 	}
 	nc := network.NetworkingConfig{}
 

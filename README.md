@@ -38,37 +38,49 @@ package main
 import "github.com/adampointer/cali"
 
 func main() {
-	cli := cali.Cli("example")
+	cli := cali.Cli("cali")
 	cli.SetShort("Example CLI tool")
 	cli.SetLong("A nice long description of what your tool actually does")
 
-	moo := cli.Command("moo")
-	moo.SetShort("Cow says moo")
-	moo.SetLong("What does the cow say?")
-	moo.Flags().StringP("utterance", "u", "Hello", "What should the cow say?")
-	moo.BindFlags()
+	terraform := cli.Command("terraform [command]")
+	terraform.SetShort("Run Terraform in an ephemeral container")
+	terraform.SetLong(`Starts a container for Terraform and attempts to run it against your code. There are two choices for code source; a local mount, or directly from a git repo.
 
-	mooTask := moo.Task("chuanwen/cowsay:latest")
-	mooTask.SetInitFunc(func(t *cali.Task, args []string) {
-		t.SetCmd([]string{"/usr/games/cowsay", cli.FlagValues().GetString("utterance")})
+Examples:
+
+  To build the contents of the current working directory using my_account as the AWS profile from the shared credentials file on this host.
+  # cali terraform plan -p my_account
+
+  Any addtional flags sent to the terraform command come after the --, e.g.
+  # cali terraform plan -- -state=environments/test/terraform.tfstate -var-file=environments/test/terraform.tfvars
+  # cali terraform -- plan -out plan.out
+`)
+	terraform.Flags().StringP("profile", "p", "default", "Profile to use from the AWS shared credentials file")
+	terraform.BindFlags()
+
+	terraformTask := terraform.Task("hashicorp/terraform:0.9.9")
+	terraformTask.SetInitFunc(func(t *cali.Task, args []string) {
+		t.AddEnv("AWS_PROFILE", cli.FlagValues().GetString("profile"))
 	})
 
 	cli.Start()
 }
 ```
 
-Now you can run containerised cowsay :D
+Now you can run containerised terraform :D
 
 ```
-$ example moo -u "Smell my cheese, you mother"
- _____________________________
-< Smell my cheese, you mother >
- -----------------------------
-        \   ^__^
-         \  (oo)\_______
-            (__)\       )\/\
-                ||----w |
-                ||     ||
+$ example terraform init
+Terraform initialized in an empty directory!
+
+The directory has no Terraform configuration files. You may begin working
+with Terraform immediately by creating Terraform configuration files.
+```
+
+Or build from a git repo...
+
+```
+$ example terraform plan --git git@github.com:someone/terraform_code.git --git-branch master --git-path path/to/code
 ```
 
 ## API
