@@ -3,11 +3,11 @@
 
 ## Overview
 
-*Ever wanted to be able to ensure that all your developers are working using the same versions of the same tools?*
+> Ever wanted to be able to ensure that all your developers are working using the same versions of the same tools?
 
-*Want to be free from dowloading huge Vagrant boxes?*
+> Want to be free from dowloading huge Vagrant boxes?
 
-*Want to be able to update and distribute new versions of your tooling quickly and easily?*
+> Want to be able to update and distribute new versions of your tooling quickly and easily?
 
 The answer to all these questions at our company was a resounding *YES!* 
 

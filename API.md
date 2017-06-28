@@ -45,17 +45,10 @@ type DockerClient struct {
 
 DockerClient is a slimmed down implementation of the docker cli
 
-#### func  GetDockerClient
-
-```go
-func GetDockerClient() *DockerClient
-```
-GetDockerClient creates or returns the DockerClient singleton
-
 #### func  NewDockerClient
 
 ```go
-func NewDockerClient(cli *client.Client) *DockerClient
+func NewDockerClient() *DockerClient
 ```
 NewDockerClient returns a new DockerClient initialised with the API object
 
@@ -76,7 +69,7 @@ AddBinds adds multiple bind mounts to the HostConfig
 #### func (*DockerClient) AddEnv
 
 ```go
-func (c *DockerClient) AddEnv(env string)
+func (c *DockerClient) AddEnv(key, value string)
 ```
 AddEnvs adds an environment variable to the HostConfig
 
@@ -90,7 +83,7 @@ AddEnvs adds multiple envs to the HostConfig
 #### func (*DockerClient) BindFromGit
 
 ```go
-func (c *DockerClient) BindFromGit(cfg *GitCheckoutConfig, noGit func()) error
+func (c *DockerClient) BindFromGit(cfg *GitCheckoutConfig, noGit func() error) error
 ```
 BindFromGit creates a data container with a git clone inside and mounts its
 volumes inside your app container If there is no valid Git repo set in config,
@@ -123,6 +116,13 @@ Git returns a new instance
 func (c *DockerClient) ImageExists(image string) bool
 ```
 ImageExists determines if an image exist locally
+
+#### func (*DockerClient) InitDocker
+
+```go
+func (c *DockerClient) InitDocker() error
+```
+Init initialises the client
 
 #### func (*DockerClient) Privileged
 
@@ -173,7 +173,7 @@ configs back to empty defaults
 ```go
 func (c *DockerClient) SetEnvs(envs []string)
 ```
-SetEnvs sets the environment variables in the HostConfig
+SetEnvs sets the environment variables in the Conf
 
 #### func (*DockerClient) SetHostConf
 
@@ -187,7 +187,7 @@ SetHostConf sets the container.HostConfig struct for the new container
 ```go
 func (c *DockerClient) SetImage(img string)
 ```
-SetImage sets the image in HostConfig
+SetImage sets the image in Conf
 
 #### func (*DockerClient) SetNetConf
 
@@ -225,6 +225,7 @@ Event holds the json structure for Docker API events
 
 ```go
 type Git struct {
+	Image string
 }
 ```
 
@@ -241,14 +242,14 @@ stopped so volume can be imported
 #### func (*Git) Pull
 
 ```go
-func (g *Git) Pull(name, relPath string) (string, error)
+func (g *Git) Pull(name string) (string, error)
 ```
 
 #### type GitCheckoutConfig
 
 ```go
 type GitCheckoutConfig struct {
-	Repo, Branch, RelPath string
+	Repo, Branch, RelPath, Image string
 }
 ```
 
@@ -275,13 +276,33 @@ type Task struct {
 
 Task is the action performed when it's parent command is run
 
+#### func (*Task) Bind
+
+```go
+func (t *Task) Bind(src, dst string) (string, error)
+```
+Bind is a utility function which will return the correctly formatted string when
+given a source and destination directory
+
+The ~ symbol and relative paths will be correctly expanded depending on the host
+OS
+
+#### func (*Task) SetDefaults
+
+```go
+func (t *Task) SetDefaults(args []string) error
+```
+SetDefaults sets the default host config for a task container Mounts the PWD to
+/tmp/workspace Mounts your ~/.aws directory to /root - change this if your image
+runs as a non-root user Sets /tmp/workspace as the workdir Configures git
+
 #### func (*Task) SetFunc
 
 ```go
 func (t *Task) SetFunc(f TaskFunc)
 ```
 SetFunc sets the TaskFunc which is run when the parent command is run if this is
-left, the defaultTaskFunc will be executed instead
+left unset, the defaultTaskFunc will be executed instead
 
 #### func (*Task) SetInitFunc
 
