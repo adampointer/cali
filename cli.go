@@ -288,14 +288,15 @@ func (c *cli) initConfig() {
 		myFlags.SetConfigFile(*c.cfgFile)
 	} else {
 		myFlags.SetConfigName(fmt.Sprintf(".%s", c.name))
-		myFlags.AddConfigPath("$HOME")
+		myFlags.AddConfigPath(".")     // First check current working directory
+		myFlags.AddConfigPath("$HOME") // Fallback to home directory, if that is not set
 	}
 	myFlags.AutomaticEnv()
 
-	// If a config file is found, read it in
-	if err := myFlags.ReadInConfig(); err == nil {
-		fmt.Println("Using config file:", myFlags.ConfigFileUsed())
-	}
+	// If a config file is found, read it in.
+	myFlags.ReadInConfig()
+	// Above returns an error if it doesn't find a config file
+	// But we don't care
 }
 
 // Start the fans please!
