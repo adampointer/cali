@@ -6,8 +6,8 @@ import (
 	"os"
 
 	log "github.com/Sirupsen/logrus"
-	"github.com/docker/docker/api/types/container"
-	"github.com/docker/docker/api/types/network"
+	"github.com/moby/moby/api/types/container"
+	"github.com/moby/moby/api/types/network"
 )
 
 // GitCheckoutConfig is input for Git.Checkout
