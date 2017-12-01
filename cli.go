@@ -122,42 +122,34 @@ type cobraFunc func(cmd *cobra.Command, args []string)
 
 // command is the actual command run by the cli and essentially just wraps cobra.Command and
 // has an associated Task
-type command struct {
+type Command struct {
 	name    string
 	RunTask *Task
 	cobra   *cobra.Command
 }
 
-// newCommand returns an freshly initialised command
-func newCommand(n string) *command {
-	return &command{
-		name:  n,
-		cobra: &cobra.Command{Use: n},
-	}
-}
-
 // SetShort sets the short description of the command
-func (c *command) SetShort(s string) {
+func (c *Command) SetShort(s string) {
 	c.cobra.Short = s
 }
 
 // SetLong sets the long description of the command
-func (c *command) SetLong(l string) {
+func (c *Command) SetLong(l string) {
 	c.cobra.Long = l
 }
 
 // setPreRun sets the cobra.Command.PreRun function
-func (c *command) setPreRun(f cobraFunc) {
+func (c *Command) setPreRun(f cobraFunc) {
 	c.cobra.PreRun = f
 }
 
 // setRun sets the cobra.Command.Run function
-func (c *command) setRun(f cobraFunc) {
+func (c *Command) setRun(f cobraFunc) {
 	c.cobra.Run = f
 }
 
 // Task is something executed by a command
-func (c *command) Task(def interface{}) *Task {
+func (c *Command) Task(def interface{}) *Task {
 	t := &Task{DockerClient: NewDockerClient()}
 
 	switch d := def.(type) {
@@ -178,12 +170,12 @@ func (c *command) Task(def interface{}) *Task {
 }
 
 // Flags returns the FlagSet for the command and is used to set new flags for the command
-func (c *command) Flags() *flag.FlagSet {
+func (c *Command) Flags() *flag.FlagSet {
 	return c.cobra.PersistentFlags()
 }
 
 // BindFlags needs to be called after all flags for a command have been defined
-func (c *command) BindFlags() {
+func (c *Command) BindFlags() {
 	c.Flags().VisitAll(func(f *flag.Flag) {
 		myFlags.BindPFlag(f.Name, f)
 		myFlags.SetDefault(f.Name, f.DefValue)
@@ -191,22 +183,25 @@ func (c *command) BindFlags() {
 }
 
 // commands is a set of commands
-type commands map[string]*command
+type commands map[string]*Command
 
-// cli is the application itself
-type cli struct {
+// Cli is the application itself
+type Cli struct {
 	name    string
 	cfgFile *string
 	cmds    commands
-	*command
+	*Command
 }
 
 // Cli returns a brand new cli
-func Cli(n string) *cli {
-	c := cli{
-		name:    n,
-		cmds:    make(commands),
-		command: newCommand(n),
+func NewCli(n string) *Cli {
+	c := Cli{
+		name: n,
+		cmds: make(commands),
+		Command: &Command{
+			name:  n,
+			cobra: &cobra.Command{Use: n},
+		},
 	}
 	c.cobra.PersistentPreRun = func(cmd *cobra.Command, args []string) {
 		if debug {
@@ -222,8 +217,11 @@ func Cli(n string) *cli {
 }
 
 // Command returns a brand new command attached to it's parent cli
-func (c *cli) Command(n string) *command {
-	cmd := newCommand(n)
+func (c *Cli) NewCommand(n string) *Command {
+	cmd := &Command{
+		name:  n,
+		cobra: &cobra.Command{Use: n},
+	}
 	c.cmds[n] = cmd
 	cmd.setPreRun(func(c *cobra.Command, args []string) {
 		cmd.RunTask.init(cmd.RunTask, args)
@@ -237,12 +235,12 @@ func (c *cli) Command(n string) *command {
 
 // FlagValues returns the wrapped viper object allowing the API consumer to use methods
 // like GetString to get values from config
-func (c *cli) FlagValues() *viper.Viper {
+func (c *Cli) FlagValues() *viper.Viper {
 	return myFlags
 }
 
 // initFlags does the intial setup of the root command's persistent flags
-func (c *cli) initFlags() {
+func (c *Cli) initFlags() {
 	var cfg string
 	txt := fmt.Sprintf("config file (default is $HOME/.%s.yaml)", c.name)
 	c.cobra.PersistentFlags().StringVar(&cfg, "config", "", txt)
@@ -283,7 +281,7 @@ func (c *cli) initFlags() {
 }
 
 // initConfig does the initial setup of viper
-func (c *cli) initConfig() {
+func (c *Cli) initConfig() {
 	if *c.cfgFile != "" {
 		myFlags.SetConfigFile(*c.cfgFile)
 	} else {
@@ -300,7 +298,7 @@ func (c *cli) initConfig() {
 }
 
 // Start the fans please!
-func (c *cli) Start() {
+func (c *Cli) Start() {
 	c.initFlags()
 	cobra.OnInitialize(c.initConfig)
 
