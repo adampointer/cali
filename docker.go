@@ -10,10 +10,10 @@ import (
 	"path"
 
 	log "github.com/Sirupsen/logrus"
-	"github.com/moby/moby/api/types"
-	"github.com/moby/moby/api/types/container"
-	"github.com/moby/moby/api/types/network"
-	"github.com/moby/moby/client"
+	"github.com/docker/docker/api/types"
+	"github.com/docker/docker/api/types/container"
+	"github.com/docker/docker/api/types/network"
+	"github.com/docker/docker/client"
 	"golang.org/x/crypto/ssh/terminal"
 	"golang.org/x/net/context"
 	pb "gopkg.in/cheggaaa/pb.v1"
@@ -296,9 +296,7 @@ func (c *DockerClient) StartContainer(rm bool, name string) (string, error) {
 		}
 	}
 	// Container has finished running. Get its exit code
-	log.Debug("About to inspect context")
 	inspect, err := c.Cli.ContainerInspect(context.Background(), resp.ID)
-	log.Debugf("Context inspected: %s", inspect)
 	if err != nil {
 		return resp.ID, fmt.Errorf("Failed to inspect Docker container: %s", err)
 	}
