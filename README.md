@@ -37,7 +37,7 @@ This has been a great success and we are really happy with how it works and how 
 ```
 package main
 
-import "github.com/adampointer/cali"
+import "github.com/skybet/cali"
 
 func main() {
 	cli := cali.NewCli("cali")
