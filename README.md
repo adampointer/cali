@@ -37,14 +37,21 @@ This has been a great success and we are really happy with how it works and how 
 ```
 package main
 
-import "github.com/adampointer/cali"
+import "github.com/skybet/cali"
 
 func main() {
-	cli := cali.Cli("cali")
+	cli := cali.NewCli("cali")
 	cli.SetShort("Example CLI tool")
 	cli.SetLong("A nice long description of what your tool actually does")
 
-	terraform := cli.Command("terraform [command]")
+	cmdTerraform(cli)
+
+	cli.Start()
+}
+
+func cmdTerraform(cli *cali.Cli) {
+
+	terraform := cli.NewCommand("terraform [command]")
 	terraform.SetShort("Run Terraform in an ephemeral container")
 	terraform.SetLong(`Starts a container for Terraform and attempts to run it against your code. There are two choices for code source; a local mount, or directly from a git repo.
 
@@ -64,8 +71,6 @@ Examples:
 	terraformTask.SetInitFunc(func(t *cali.Task, args []string) {
 		t.AddEnv("AWS_PROFILE", cli.FlagValues().GetString("profile"))
 	})
-
-	cli.Start()
 }
 ```
 
