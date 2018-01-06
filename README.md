@@ -1,4 +1,11 @@
 # Cali - ComposAble deveLopment and cI
+
+![Cali logo](docs/cali.png)
+
+Oh, you found this repo, huh?
+
+Well, fair warning, we're still figuring out how the open source version of Cali should work. Feel free to play with it, but we make no guarantees about whether your stuff will break between commits.
+
 ---
 
 ## Overview
@@ -92,5 +99,5 @@ $ example terraform plan --git git@github.com:someone/terraform_code.git --git-b
 
 ## API
 
-[https://github.com/adampointer/cali/blob/master/API.md](API.md)
+[docs/API.md](docs/API.md)
 

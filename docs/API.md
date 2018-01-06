@@ -1,6 +1,6 @@
 # cali
 --
-    import "github.com/adampointer/cali"
+    import "github.com/skybet/cali"
 
 
 ## Usage
