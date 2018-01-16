@@ -193,7 +193,7 @@ type Cli struct {
 	*Command
 }
 
-// Cli returns a brand new cli
+// NewCli returns a brand new cli
 func NewCli(n string) *Cli {
 	c := Cli{
 		name: n,
@@ -216,15 +216,19 @@ func NewCli(n string) *Cli {
 	return &c
 }
 
-// Command returns a brand new command attached to it's parent cli
+// NewCommand returns a brand new command attached to it's parent cli
 func (c *Cli) NewCommand(n string) *Command {
 	cmd := &Command{
 		name:  n,
 		cobra: &cobra.Command{Use: n},
 	}
 	c.cmds[n] = cmd
+
 	cmd.setPreRun(func(c *cobra.Command, args []string) {
-		cmd.RunTask.init(cmd.RunTask, args)
+		// PreRun function is optional
+		if cmd.RunTask.init != nil {
+			cmd.RunTask.init(cmd.RunTask, args)
+		}
 	})
 	cmd.setRun(func(c *cobra.Command, args []string) {
 		cmd.RunTask.f(cmd.RunTask, args)
