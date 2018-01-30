@@ -1,4 +1,4 @@
-# Cali - ComposAble deveLopment and cI
+# Cali - Cali Automation Layout Initialiser
 
 ![Cali logo](docs/cali.png)
 
