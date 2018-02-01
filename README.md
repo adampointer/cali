@@ -99,5 +99,5 @@ $ example terraform plan --git git@github.com:someone/terraform_code.git --git-b
 
 ## Docs
 
-The API [docs](docs/API.md) are available in this git repo or take a look (and help edit) [the wiki](https://github.com/skybet/cali/wiki).
+The API [docs](https://godoc.org/github.com/skybet/cali) are available on GoDoc or take a look (and help edit) [the wiki](https://github.com/skybet/cali/wiki).
 
