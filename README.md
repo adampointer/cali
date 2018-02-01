@@ -97,7 +97,7 @@ Or build from a git repo...
 $ example terraform plan --git git@github.com:someone/terraform_code.git --git-branch master --git-path path/to/code
 ```
 
-## API
+## Docs
 
-[docs/API.md](docs/API.md)
+The API [docs](https://godoc.org/github.com/skybet/cali) are available on GoDoc or take a look (and help edit) [the wiki](https://github.com/skybet/cali/wiki).
 
