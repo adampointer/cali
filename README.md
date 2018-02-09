@@ -4,7 +4,9 @@
 
 Oh, you found this repo, huh?
 
-Well, fair warning, we're still figuring out how the open source version of Cali should work. Feel free to play with it, but we make no guarantees about whether your stuff will break between commits.
+Well, fair warning, we're still figuring out how the open source version of Cali should work.
+
+Feel free to play with it, but while we're still on v0.x.x, be sure to pin to specific versions in your dependency manager of choice.
 
 ---
 
