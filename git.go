@@ -4,6 +4,8 @@ import (
 	"crypto/md5"
 	"fmt"
 	"os"
+	"regexp"
+	"strings"
 
 	log "github.com/Sirupsen/logrus"
 	"github.com/docker/docker/api/types/container"
@@ -31,7 +33,22 @@ type Git struct {
 // GitCheckout will create and start a container, checkout repo and leave container stopped
 // so volume can be imported
 func (g *Git) Checkout(cfg *GitCheckoutConfig) (string, error) {
-	name := fmt.Sprintf("data_%x", md5.Sum([]byte(cfg.Repo+cfg.Branch)))
+	// TODO: this should be more user-friendly!
+	// Should include the binary name (e.g. cali), and repo name in plaintext. Maybe branch too.
+	// But should also definitely needs an MD5
+
+	repoName, err := repoNameFromUrl(cfg.Repo)
+	if err != nil {
+		return "", fmt.Errorf("Failed to create data container for %s: %s", cfg.Repo, err)
+	}
+
+	// TODO: this should be a separate function
+	name := fmt.Sprintf("data_%s_%s_%s_%x",
+		repoName,
+		strings.Replace(cfg.RelPath, "/", "-", -1),
+		strings.Replace(cfg.Branch, "/", "-", -1),
+		md5.Sum([]byte(cfg.Repo)),
+	)
 
 	if g.c.ContainerExists(name) {
 		log.Infof("Existing data container found: %s", name)
@@ -75,6 +92,28 @@ func (g *Git) Checkout(cfg *GitCheckoutConfig) (string, error) {
 		}
 		return id, nil
 	}
+}
+
+// repoNameFromUrl takes a git repo URL and returns a string
+// representing the repository name
+// TODO: tests for this
+func repoNameFromUrl(url string) (string, error) {
+
+	// TODO later:
+	// remove .git from end
+	// remove .*@ at beginning
+	// remove protocol
+
+	// Regex for container names: [a-zA-Z0-9][a-zA-Z0-9_.-]
+	// but to simplify, just use [a-zA-Z0-9]
+	// This regex matches every other character
+	reg, err := regexp.Compile("[^a-zA-Z0-9]+")
+	if err != nil {
+		return "", fmt.Errorf("Unable to generate repo name: %s", err)
+	}
+	repoName := reg.ReplaceAllString(url, "-")
+
+	return repoName, nil
 }
 
 func (g *Git) Pull(name string) (string, error) {
