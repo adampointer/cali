@@ -4,6 +4,8 @@ import (
 	"crypto/md5"
 	"fmt"
 	"os"
+	"regexp"
+	"strings"
 
 	log "github.com/Sirupsen/logrus"
 	"github.com/docker/docker/api/types/container"
@@ -31,16 +33,19 @@ type Git struct {
 // GitCheckout will create and start a container, checkout repo and leave container stopped
 // so volume can be imported
 func (g *Git) Checkout(cfg *GitCheckoutConfig) (string, error) {
-	name := fmt.Sprintf("data_%x", md5.Sum([]byte(cfg.Repo+cfg.Branch)))
+	containerName, err := cfg.GetContainerName()
+	if err != nil {
+		return "", fmt.Errorf("Failed to create data container for %s: %s", cfg.Repo, err)
+	}
 
-	if g.c.ContainerExists(name) {
-		log.Infof("Existing data container found: %s", name)
+	if g.c.ContainerExists(containerName) {
+		log.Infof("Existing data container found: %s", containerName)
 
-		if _, err := g.Pull(name); err != nil {
+		if _, err := g.Pull(containerName); err != nil {
 			log.Warnf("Git pull error: %s", err)
-			return name, err
+			return containerName, err
 		}
-		return name, nil
+		return containerName, nil
 	} else {
 		log.WithFields(log.Fields{
 			"git_url": cfg.Repo,
@@ -68,7 +73,7 @@ func (g *Git) Checkout(cfg *GitCheckoutConfig) (string, error) {
 		g.c.SetHostConf(&hc)
 		g.c.SetNetConf(&nc)
 
-		id, err := g.c.StartContainer(false, name)
+		id, err := g.c.StartContainer(false, containerName)
 
 		if err != nil {
 			return "", fmt.Errorf("Failed to create data container for %s: %s", cfg.Repo, err)
@@ -100,4 +105,55 @@ func (g *Git) Pull(name string) (string, error) {
 	g.c.SetNetConf(&nc)
 
 	return g.c.StartContainer(true, "")
+}
+
+// GetContainerName returns a container name for provided Git config
+func (cfg GitCheckoutConfig) GetContainerName() (string, error) {
+	repoName, err := repoNameFromUrl(cfg.Repo)
+	if err != nil {
+		return "", fmt.Errorf("Failed to get container name for %s: %s", cfg.Repo, err)
+	}
+	containerName := repoName
+
+	if cfg.RelPath == "." || cfg.RelPath == "" {
+		containerName = fmt.Sprintf("data_%s_%s_%x",
+			repoName,
+			strings.Replace(cfg.Branch, "/", "-", -1),
+			md5.Sum([]byte(cfg.Repo)),
+		)
+	} else {
+		containerName = fmt.Sprintf("data_%s_%s_%s_%x",
+			repoName,
+			strings.Replace(cfg.RelPath, "/", "-", -1),
+			strings.Replace(cfg.Branch, "/", "-", -1),
+			md5.Sum([]byte(cfg.Repo)),
+		)
+	}
+
+	return containerName, nil
+}
+
+// repoNameFromUrl takes a git repo URL and returns a string
+// representing the repository name
+func repoNameFromUrl(url string) (string, error) {
+
+	// Strip out the https:// or git:// protocol
+	protocolRe := regexp.MustCompile("^.*//")
+	url = protocolRe.ReplaceAllString(url, "")
+
+	// Remove trailing .git
+	dotGitRe := regexp.MustCompile(".git$")
+	url = dotGitRe.ReplaceAllString(url, "")
+
+	// Remove user@
+	userAtRe := regexp.MustCompile(".*@")
+	url = userAtRe.ReplaceAllString(url, "")
+
+	// Actual regex for container names: [a-zA-Z0-9][a-zA-Z0-9_.-]
+	// https://github.com/moby/moby/blob/master/daemon/names/names.go
+	// but to simplify, as we're doing an inverse match, just use [a-zA-Z0-9]
+	nonContainerRe := regexp.MustCompile("[^a-zA-Z0-9]")
+	repoName := nonContainerRe.ReplaceAllString(url, "-")
+
+	return repoName, nil
 }
