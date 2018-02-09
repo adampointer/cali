@@ -37,27 +37,19 @@ func (g *Git) Checkout(cfg *GitCheckoutConfig) (string, error) {
 	// Should include the binary name (e.g. cali), and repo name in plaintext. Maybe branch too.
 	// But should also definitely needs an MD5
 
-	repoName, err := repoNameFromUrl(cfg.Repo)
+	containerName, err := cfg.GetContainerName()
 	if err != nil {
 		return "", fmt.Errorf("Failed to create data container for %s: %s", cfg.Repo, err)
 	}
 
-	// TODO: this should be a separate function
-	name := fmt.Sprintf("data_%s_%s_%s_%x",
-		repoName,
-		strings.Replace(cfg.RelPath, "/", "-", -1),
-		strings.Replace(cfg.Branch, "/", "-", -1),
-		md5.Sum([]byte(cfg.Repo)),
-	)
+	if g.c.ContainerExists(containerName) {
+		log.Infof("Existing data container found: %s", containerName)
 
-	if g.c.ContainerExists(name) {
-		log.Infof("Existing data container found: %s", name)
-
-		if _, err := g.Pull(name); err != nil {
+		if _, err := g.Pull(containerName); err != nil {
 			log.Warnf("Git pull error: %s", err)
-			return name, err
+			return containerName, err
 		}
-		return name, nil
+		return containerName, nil
 	} else {
 		log.WithFields(log.Fields{
 			"git_url": cfg.Repo,
@@ -85,35 +77,13 @@ func (g *Git) Checkout(cfg *GitCheckoutConfig) (string, error) {
 		g.c.SetHostConf(&hc)
 		g.c.SetNetConf(&nc)
 
-		id, err := g.c.StartContainer(false, name)
+		id, err := g.c.StartContainer(false, containerName)
 
 		if err != nil {
 			return "", fmt.Errorf("Failed to create data container for %s: %s", cfg.Repo, err)
 		}
 		return id, nil
 	}
-}
-
-// repoNameFromUrl takes a git repo URL and returns a string
-// representing the repository name
-// TODO: tests for this
-func repoNameFromUrl(url string) (string, error) {
-
-	// TODO later:
-	// remove .git from end
-	// remove .*@ at beginning
-	// remove protocol
-
-	// Regex for container names: [a-zA-Z0-9][a-zA-Z0-9_.-]
-	// but to simplify, just use [a-zA-Z0-9]
-	// This regex matches every other character
-	reg, err := regexp.Compile("[^a-zA-Z0-9]+")
-	if err != nil {
-		return "", fmt.Errorf("Unable to generate repo name: %s", err)
-	}
-	repoName := reg.ReplaceAllString(url, "-")
-
-	return repoName, nil
 }
 
 func (g *Git) Pull(name string) (string, error) {
@@ -139,4 +109,44 @@ func (g *Git) Pull(name string) (string, error) {
 	g.c.SetNetConf(&nc)
 
 	return g.c.StartContainer(true, "")
+}
+
+// GetContainerName returns a container name for provided Git config
+func (cfg GitCheckoutConfig) GetContainerName() (string, error) {
+	repoName, err := repoNameFromUrl(cfg.Repo)
+
+	if err != nil {
+		return "", fmt.Errorf("Failed to get container name for %s: %s", cfg.Repo, err)
+	}
+
+	name := fmt.Sprintf("data_%s_%s_%s_%x",
+		repoName,
+		strings.Replace(cfg.RelPath, "/", "-", -1),
+		strings.Replace(cfg.Branch, "/", "-", -1),
+		md5.Sum([]byte(cfg.Repo)),
+	)
+
+	return name, nil
+}
+
+// repoNameFromUrl takes a git repo URL and returns a string
+// representing the repository name
+// TODO: tests for this
+func repoNameFromUrl(url string) (string, error) {
+
+	// TODO later:
+	// remove .git from end
+	// remove .*@ at beginning
+	// remove protocol
+
+	// Regex for container names: [a-zA-Z0-9][a-zA-Z0-9_.-]
+	// but to simplify, just use [a-zA-Z0-9]
+	// This regex matches every other character
+	reg, err := regexp.Compile("[^a-zA-Z0-9]+")
+	if err != nil {
+		return "", fmt.Errorf("Unable to generate repo name: %s", err)
+	}
+	repoName := reg.ReplaceAllString(url, "-")
+
+	return repoName, nil
 }
