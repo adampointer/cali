@@ -1,4 +1,13 @@
-# Cali - ComposAble deveLopment and cI
+# Cali - Cali Automation Layout Initialiser
+
+![Cali logo](docs/cali.png)
+
+Oh, you found this repo, huh?
+
+Well, fair warning, we're still figuring out how the open source version of Cali should work.
+
+Feel free to play with it, but while we're still on v0.x.x, be sure to pin to specific versions in your dependency manager of choice.
+
 ---
 
 # IMPORTANT
@@ -41,14 +50,21 @@ This has been a great success and we are really happy with how it works and how 
 ```
 package main
 
-import "github.com/adampointer/cali"
+import "github.com/skybet/cali"
 
 func main() {
-	cli := cali.Cli("cali")
+	cli := cali.NewCli("cali")
 	cli.SetShort("Example CLI tool")
 	cli.SetLong("A nice long description of what your tool actually does")
 
-	terraform := cli.Command("terraform [command]")
+	cmdTerraform(cli)
+
+	cli.Start()
+}
+
+func cmdTerraform(cli *cali.Cli) {
+
+	terraform := cli.NewCommand("terraform [command]")
 	terraform.SetShort("Run Terraform in an ephemeral container")
 	terraform.SetLong(`Starts a container for Terraform and attempts to run it against your code. There are two choices for code source; a local mount, or directly from a git repo.
 
@@ -68,8 +84,6 @@ Examples:
 	terraformTask.SetInitFunc(func(t *cali.Task, args []string) {
 		t.AddEnv("AWS_PROFILE", cli.FlagValues().GetString("profile"))
 	})
-
-	cli.Start()
 }
 ```
 
@@ -89,7 +103,7 @@ Or build from a git repo...
 $ example terraform plan --git git@github.com:someone/terraform_code.git --git-branch master --git-path path/to/code
 ```
 
-## API
+## Docs
 
-[https://github.com/adampointer/cali/blob/master/API.md](API.md)
+The API [docs](https://godoc.org/github.com/skybet/cali) are available on GoDoc or take a look (and help edit) [the wiki](https://github.com/skybet/cali/wiki).
 
