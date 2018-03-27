@@ -1,6 +1,10 @@
 # Cali - ComposAble deveLopment and cI
 ---
 
+# IMPORTANT
+
+*This repository is no longer actively maintained. Please migrate over to [https://github.com/skybet/cali](skybet/cali).*
+
 ## Overview
 
 **Ever wanted to be able to ensure that all your developers are working using the same versions of the same tools?**
